@@ -1,0 +1,15 @@
+{
+  "source": "MaleCNS v1.0 (CC-BY 4.0), https://male-cns.janelia.org/download/",
+  "paper": "10.1016/j.cell.2026.08.015",
+  "neurons": 7824,
+  "edges": 1171626,
+  "counts": {
+    "ORN": 2635,
+    "ALPN": 686,
+    "KC": 4064,
+    "MBON": 97,
+    "DAN": 340,
+    "APL": 2
+  },
+  "sha256": "599ceeaf20adb0e1ca712b98b56c98b867b603bd0a659d0a3f82ed35e5a4814a"
+}

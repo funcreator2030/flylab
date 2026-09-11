@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.DS_Store
+# Raw MaleCNS release files are ~1.1 GB — fetch them yourself, see README.
+connectome_data/
+runs/
