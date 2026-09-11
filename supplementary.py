@@ -31,18 +31,24 @@ def subtype_rewire(W, kc_type, rng, sweeps=40):
     return new
 
 
-def conditioning_subtype(seed=0, us="PPL101", n_train=12, n_glom=6):
-    rng = np.random.default_rng(seed)
+def conditioning_subtype(seed=0, us="PPL101", n_train=12, n_glom=6,
+                         readout="dan_weighted"):
+    rng = np.random.default_rng(seed)                    # task stream
+    rng_null = np.random.default_rng(seed + 1_000_000)   # null stream (see learn.py)
     m = LearningMB(seed=seed, rng=rng)
     kt = np.array([t.split("-")[0] for t in m.type[m.ix["KC"]]])
-    m.W_km = subtype_rewire(m.W_km, kt, rng); m.W_km0 = m.W_km.copy()
+    m.W_km = subtype_rewire(m.W_km, kt, rng_null); m.W_km0 = m.W_km.copy()
     G = m.glom_list; p = rng.permutation(len(G))
     A = [G[i] for i in p[:n_glom]]; B = [G[i] for i in p[n_glom:2*n_glom]]
-    tr = m.trained_mbons(us); US = m.us(us)
-    pre = m.probe(A)[tr].mean(), m.probe(B)[tr].mean()
+    tr, wt = m.trained_weights(us)
+    if readout == "equal":
+        wt = np.full(len(tr), 1.0 / len(tr))
+    rd = lambda o: float(m.probe(o)[tr] @ wt)
+    US = m.us(us)
+    pre = rd(A), rd(B)
     for _ in range(n_train):
         m.present(A, US); m.present(B, None)
-    post = m.probe(A)[tr].mean(), m.probe(B)[tr].mean()
+    post = rd(A), rd(B)
     return ((post[0]-post[1]) - (pre[0]-pre[1])) / (abs(pre[0])+abs(pre[1])+1e-12)
 
 
@@ -60,13 +66,14 @@ if __name__ == "__main__":
         li = np.array([conditioning(seed=s, n_train=nt)["LI"] for s in range(10)])
         print(f"  训练 {nt:>2d} 试次 → LI {li.mean():+.4f} ± {li.std(ddof=1):.4f}")
 
-    print("\n=== 补充3: 亚型内重连（保住 KC亚型→MBON 组成）vs 全局重连 ===")
-    st = np.array([conditioning_subtype(seed=s) for s in range(N)])
-    real = np.array([conditioning(seed=s)["LI"] for s in range(N)])
-    full = np.array([conditioning(seed=s, rewire=True)["LI"] for s in range(N)])
-    print(f"  真实连接组      LI {real.mean():+.4f} ± {real.std(ddof=1):.4f}")
-    print(f"  亚型内重连      LI {st.mean():+.4f} ± {st.std(ddof=1):.4f}")
-    print(f"  全局保度重连    LI {full.mean():+.4f} ± {full.std(ddof=1):.4f}")
+    print("\n=== 补充3: 亚型内重连 vs 全局重连（两种读出，配对，气味已匹配）===")
+    for ro in ["equal", "dan_weighted"]:
+        st = np.array([conditioning_subtype(seed=s, readout=ro) for s in range(N)])
+        real = np.array([conditioning(seed=s, readout=ro)["LI"] for s in range(N)])
+        full = np.array([conditioning(seed=s, readout=ro, rewire=True)["LI"] for s in range(N)])
+        lab = "等权" if ro == "equal" else "DAN加权"
+        print(f"  [{lab}] 真实 {real.mean():+.4f} | 亚型内重连 {st.mean():+.4f} "
+              f"| 全局重连 {full.mean():+.4f}   配对差(真实-全局) {(real-full).mean():+.4f}")
 
     print("\n=== 补充4: 换一个隔室的 US（PAM11 → α1，奖赏型）===")
     for us in ["PPL101", "PAM11", "PAM01", "PAM12"]:

@@ -46,6 +46,19 @@ class LearningMB(MB):
             ix = ix[np.argsort(-tot[ix])[:top]]
         return ix
 
+    def trained_weights(self, dan_type):
+        """How strongly the US DAN actually innervates each trained MBON.
+
+        Reading the trained set with equal weights treats an MBON the DAN barely
+        touches the same as its main target.  Weighting by real innervation is
+        both more biological and the only readout under which the null-model
+        comparison is well posed.
+        """
+        tot = self.G[self.dan_type == dan_type].sum(0)
+        ix = np.flatnonzero(tot > 0)
+        w = tot[ix]
+        return ix, w / w.sum()
+
     # ---- one presentation ----
     def present(self, odor, dan_act=None, learn=True, noise=0.03):
         f = self.forward(self.orn_drive(odor, noise=noise), noise=noise)
@@ -68,15 +81,24 @@ class LearningMB(MB):
 
 
 def conditioning(seed=0, us_dan="PPL101", n_train=12, arm="paired",
-                 rewire=False, eta=0.35, sparsity=0.06, n_glom=6):
+                 rewire=False, eta=0.35, sparsity=0.06, n_glom=6,
+                 readout="dan_weighted"):
     """Differential conditioning: CS+ paired with US, CS- unpaired.
 
     arm: paired | frozen | shuffled | swapped | unpaired
+    readout: dan_weighted (primary) | equal
+
+    Two independent random streams.  Building a null model consumes a large and
+    arm-dependent number of draws, so a single stream hands the rewired arm a
+    different odour pair than the real arm -- which silently turns the null
+    comparison into a comparison of different stimuli.  rng_task drives odours
+    and noise; rng_null drives rewiring only.
     """
-    rng = np.random.default_rng(seed)
+    rng = np.random.default_rng(seed)                    # task: odours, noise
+    rng_null = np.random.default_rng(seed + 1_000_000)   # null-model construction
     m = LearningMB(seed=seed, rng=rng, target_sparsity=sparsity, eta=eta)
     if rewire:
-        m.W_km = _degree_preserving(m.W_km, rng, sweeps=40)
+        m.W_km = _degree_preserving(m.W_km, rng_null, sweeps=40)
         m.W_km0 = m.W_km.copy()
 
     G = m.glom_list
@@ -87,8 +109,11 @@ def conditioning(seed=0, us_dan="PPL101", n_train=12, arm="paired",
     # while the endpoint stays LI = (A - B).  A real reversal must flip LI's sign.
     cs_plus, cs_minus = (B, A) if arm == "swapped" else (A, B)
 
-    tr = m.trained_mbons(us_dan)
-    pre = m.probe(A)[tr].mean(), m.probe(B)[tr].mean()
+    tr, wt = m.trained_weights(us_dan)
+    if readout == "equal":
+        wt = np.full(len(tr), 1.0 / len(tr))
+    rd = lambda o: float(m.probe(o)[tr] @ wt)
+    pre = rd(A), rd(B)
 
     US = m.us(us_dan)
     for t in range(n_train):
@@ -104,10 +129,10 @@ def conditioning(seed=0, us_dan="PPL101", n_train=12, arm="paired",
         else:                                      # paired / swapped
             m.present(cs_plus, US); m.present(cs_minus, None)
 
-    post = m.probe(A)[tr].mean(), m.probe(B)[tr].mean()
+    post = rd(A), rd(B)
     d_pre, d_post = pre[0] - pre[1], post[0] - post[1]
     scale = abs(pre[0]) + abs(pre[1]) + 1e-12
-    return dict(arm=arm, seed=seed, LI=(d_post - d_pre) / scale,
+    return dict(arm=arm, seed=seed, readout=readout, LI=(d_post - d_pre) / scale,
                 pre_A=pre[0], pre_B=pre[1], post_A=post[0], post_B=post[1],
                 n_trained_mbon=len(tr))
 

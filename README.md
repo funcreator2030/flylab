@@ -6,8 +6,12 @@ It learns a differential olfactory conditioning task, and it passes the controls
 that matter — odour specificity, contingency reversal, and a degree-preserving
 connectome null.
 
-**It also reports a negative result: on this task the real connectome has no
-advantage over a degree-matched random rewiring. It does slightly worse.**
+**Where the connectome's structure shows up is not where we first looked.** In the
+KC→MBON projection, no learning difference against a degree-matched rewiring is
+detectable. In the **ALPN→KC** projection it is: the real wiring separates similar
+odours measurably better (z = −12.5). See [`CORRECTIONS.md`](CORRECTIONS.md) — the
+first version of this repository reported a stronger negative claim that turned out
+to be an artifact of its own null construction.
 
 ## Why this exists
 
@@ -77,49 +81,64 @@ w      += rho * (w0 - w)
 
 ## Results — differential conditioning, 20 independent seeds per arm
 
-| arm | learning index | p vs paired | Cliff's δ | tier |
-|---|---|---|---|---|
-| **paired** | **−0.1143 ± 0.0229** | — | — | — |
-| frozen weights | −0.0002 ± 0.0072 | 0.00005 | −1.000 | mechanical check |
-| unpaired (US alone) | +0.0014 ± 0.0071 | 0.00005 | −1.000 | mechanical check |
-| shuffled reinforcement | +0.0221 ± 0.0444 | 0.00005 | −1.000 | **real test** ✅ |
-| **contingency reversal** | **+0.1356 ± 0.0357** | 0.00005 | −1.000 | **real test, sign flips** ✅ |
-| degree-preserving rewire | **−0.1633 ± 0.0235** | 0.00005 | +0.900 | **null model** ⚠️ |
+Readout is the evoked MBON response in the trained compartment, weighted by how
+strongly the US dopaminergic neuron actually innervates each MBON.
 
-Permutation test, 20,000 resamples; 0.00005 is that test's floor.
+| arm | learning index | tier |
+|---|---|---|
+| **paired** | **−0.3907 ± 0.0551** | — |
+| frozen weights | ≈ 0 | mechanical check |
+| unpaired (US alone) | ≈ 0 | mechanical check |
+| shuffled reinforcement | abolished | **real test** ✅ |
+| **contingency reversal** | **sign flips** | **real test** ✅ |
 
 **Odour specificity.** After training odour A: CS+ **−24.67% ± 2.82**, CS− −0.22% ± 0.67,
 a third odour never presented −0.15% ± 0.78.
 
-**Acquisition.** Monotone and saturating: 0 → +0.0015; 2 → −0.0541; 4 → −0.0740;
-8 → −0.0949; 12 → −0.1072; 20 → −0.1202; 32 → −0.1311.
+**Acquisition.** Monotone and saturating: 0 → +0.0009; 2 → −0.2255; 4 → −0.3013;
+8 → −0.3651; 12 → −0.3907; 20 → −0.4122; 32 → −0.4208.
 
-**Across compartments.** PPL101 −0.1072, PAM11 −0.1138, PAM01 −0.0784, PAM12 −0.1394.
+**Across compartments.** PPL101 −0.3907, PAM11 −0.3775, PAM01 −0.3406, PAM12 −0.3206.
 
-## The negative result
+## The KC→MBON null: no detectable difference
 
-| connectome | learning index |
-|---|---|
-| real | −0.1143 ± 0.0229 |
-| rewired within KC subtype | −0.1412 ± 0.0278 |
-| fully degree-preserving rewire | **−0.1633 ± 0.0235** |
+Real connectome vs degree-preserving rewire, 40 seeds, arms matched on stimuli,
+paired sign-flip permutation:
 
-**The more structure you destroy, the better it learns — monotonically.**
+| readout | real | rewired | paired diff | p |
+|---|---|---|---|---|
+| equal weight | −0.1146 | −0.1426 | +0.0280 | 0.00005 |
+| **DAN-synapse weighted** | **−0.4127** | **−0.4234** | **+0.0108** | **0.297** |
 
-The null is not sloppy: KC out-degree, MBON in-degree and the weight multiset are
-preserved exactly, and the observed edge overlap of 25.8% matches the configuration-model
-expectation of 25.4%, so the rewiring is fully mixed.
+Across eight compartments, one of eight survives Bonferroni (PPL102) and the signs
+are mixed (5 positive, 3 negative). Paired SE is 0.0101, so the smallest effect
+detectable at 80% power is ≈ 6.9% of the learning magnitude: **no difference larger
+than about 7% is detectable**, which is not the same as no difference.
 
-A plausible mechanism: the real KC→MBON projection is structured, with KC subtypes
-biased toward particular compartments. Random rewiring spreads each MBON's inputs evenly
-across all 4,064 KCs, so any odour — which activates ~6% of them — reaches more of a
-trained MBON's inputs. On a single-association task, specificity is a handicap.
+## Where the structure actually is
 
-This is consistent with published critiques that connectome topology advantages vanish
-under matched controls. It does **not** rule out that the structure pays off on tasks this
-one does not probe: parallel learning across compartments, capacity and interference,
-continual learning, or anything requiring compartment-specific routing. Those are the
-next experiments.
+Every null above rewires KC→MBON. The fly's combinatorial odour code is built one
+layer earlier, in ALPN→KC — so rewire *that* instead, preserving degrees, and measure
+how well similar odours (sharing 3 of 6 glomeruli) stay apart. 40 odour pairs,
+10 null instances:
+
+| | KC Jaccard | KC corr | **MBON population corr** | sparsity |
+|---|---|---|---|---|
+| real | 0.2181 | 0.3972 | **0.8954** | 0.0600 |
+| ALPN→KC rewired | 0.2327 | 0.4040 | **0.9553** | 0.0600 |
+| **z (real vs null)** | **−4.4** | −0.7 | **−12.5** | identical |
+
+Lower correlation is better separation. Sparsity is identical to four decimals, so
+this is not a sparsity confound. **The real connectome keeps similar odours further
+apart than a degree-matched rewiring of the same projection.**
+
+The learning index is blind to this: rewiring ALPN→KC leaves the LI statistically
+unchanged. The structure is real, large, and measurable in the representation — and a
+single scalar behavioural readout cannot see it.
+
+**Caution.** `kc_tot`, the per-KC input normaliser, is derived from `W_pk`. Rewiring
+`W_pk` without recomputing it flips the sign of this result (z = +2.2), inventing a
+reverse effect from a stale cache. `separability.py` runs both so the trap is visible.
 
 ## Reproduce
 
@@ -127,6 +146,8 @@ next experiments.
 python3 extract.py            # rebuild the subgraph from the release (~1 min, needs the 1.1 GB files)
 python3 run_experiment.py 20  # main experiment, 6 arms × 20 seeds
 python3 supplementary.py      # specificity, acquisition curve, subtype null, other compartments
+python3 null_test.py          # KC->MBON null, paired, both readouts, 8 compartments
+python3 separability.py       # ALPN->KC null, pattern separation of similar odours
 ```
 
 `mb_subgraph.npz` ships with the repository, so the experiments run without the download.
@@ -149,7 +170,9 @@ odour-specific, contingency-sensitive differential conditioning.
 normalisation, `eta` and `rho`, and the choice of a rate model.
 
 **Not supported.** That the fly learns this way; that any of this transfers to trading;
-that connectome topology beats degree-matched random topology — measured here, it does not.
+that connectome topology beats degree-matched random topology *on the learning index* —
+no such difference is detectable above ~7% of the learning magnitude. The separation
+result is a representational claim, not a behavioural one.
 
 The first-tier result (CS+ is depressed) follows from the rule's construction. Passing it
 is not evidence. The evidence is odour specificity, the contingency reversal, and the null.
